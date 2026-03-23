@@ -393,7 +393,23 @@ class TransactionsPage(tk.Frame):
         self.tree.tag_configure("expense", foreground=DANGER)
 
     def _open_add_dialog(self):
-        AddTransactionDialog(self, self.app)
+        type_ = simpledialog.askstring("Add Transaction", "Type (income or expense):", parent=self)
+        if not type_ or type_.lower() not in("income", "expense"):
+            messagebox.showerror("Invalid", "Please enter either 'income' or 'expense'.")
+            return
+        amount = simpledialog.askfloat("Add Transaction", "Amount ($):", parent=self, minvalue=0.01)
+        if not amount:
+            return
+        category = simpledialog.askstring("Add Transaction", f"Category\n({', '.join(CATEGORIES)}):", parent=self)
+        if not category or category not in CATEGORIES:
+            messagebox.showerror("Invalid", f"Please enter a valid category.")
+            return
+        description = simpledialog.askstring("Add Transaction", "Description (optional):", parent=self)
+        date = simpledialog.askstring("Add Transaction", "Date (YYYY-MM-DD):", parent=self, initialvalue=datetime.date.today().isoformat())
+        if not date:
+            return
+        add_transaction(type_.lower(), amount, category, description or "", date)
+        self.app.refresh_all()
 
     def _delete_selected(self):
         sel = self.tree.selection()
@@ -413,6 +429,7 @@ class AddTransactionDialog(tk.Toplevel):
         self.configure(bg=PANEL)
         self.resizable(False, False)
         self.grab_set()
+        self.focus_force()
         self._build()
 
     def _build(self):
@@ -436,8 +453,10 @@ class AddTransactionDialog(tk.Toplevel):
         amt_f.pack(fill="x", **pad)
         label(amt_f, "Amount ($)", fg=SUBTEXT, font=FONT_SMALL).pack(anchor="w")
         self.amt_var = tk.StringVar()
-        tk.Entry(amt_f, textvariable=self.amt_var, bg=CARD, fg=TEXT,
-                 insertbackground=TEXT, relief="flat", font=FONT_BODY).pack(fill="x", pady=2, ipady=6)
+        self.amt_entry = tk.Entry(amt_f, textvariable=self.amt_var , bg=CARD, fg=TEXT,
+                                  insertbackground=TEXT, relief="flat", font=FONT_BODY)
+        self.amt_entry.pack(fill="x", pady=2, ipady=6)
+        self.after(150, self.amt_entry.focus_set)
 
         # Category
         cat_f = tk.Frame(self, bg=PANEL)
@@ -468,6 +487,9 @@ class AddTransactionDialog(tk.Toplevel):
         btn_row.pack(fill="x", padx=24, pady=16)
         styled_btn(btn_row, "Save", self._save).pack(side="right", padx=(8,0))
         styled_btn(btn_row, "Cancel", self.destroy, color=BORDER, fg=TEXT).pack(side="right")
+
+        self.after(100, lambda: self.amt_var)
+        self.after(100, lambda: self.focus_force()) 
 
     def _save(self):
         try:
